@@ -411,106 +411,44 @@
   window.addEventListener('resize', ajustar);
   ajustar();
 
-  /* ---- Portada y música 8-bit (Web Audio, sin archivos externos) ---- */
+  /* ---- Portada y música ---- */
   document.body.classList.add('cerrada');
   var portada = document.getElementById('portada');
   var botonMusica = document.getElementById('musica');
   var bolaOriginal = document.querySelector('img[alt="Pokébola"]');
   if (bolaOriginal) document.getElementById('portada-bola').src = bolaOriginal.src;
 
-  var BPM = 160, beat = 60 / BPM;
-  var A = [['A4',.5],['A4',.5],['C5',.5],['D5',.5],['E5',1],['D5',.5],['C5',.5],
-           ['A4',.5],['A4',.5],['C5',.5],['D5',.5],['E5',1],['G5',1],
-           ['F5',.5],['F5',.5],['E5',.5],['D5',.5],['C5',1],['D5',.5],['E5',.5],
-           ['D5',.5],['C5',.5],['B4',.5],['C5',.5],['A4',2]];
-  var B = [['E5',.5],['E5',.5],['E5',.5],['G5',.5],['A5',1],['G5',.5],['E5',.5],
-           ['D5',.5],['D5',.5],['D5',.5],['F5',.5],['G5',1],['F5',.5],['D5',.5],
-           ['C5',.5],['E5',.5],['G5',.5],['C6',.5],['B5',.5],['A5',.5],['G5',.5],['E5',.5],
-           ['F5',.5],['G5',.5],['A5',.5],['G5',.5],['E5',1],['R',1]];
-  var B2 = B.slice(0, 22).concat([['F5',.5],['G5',.5],['A5',.5],['B5',.5],['C6',2]]);
-  var MELODIA = A.concat(B, A, B2);
-  var BAJO = ['A2','A2','F2','A2','A2','G2','C3','F2','A2','A2','F2','A2','A2','G2','F2','G2'];
-  var COMPASES = 16, LOOP = COMPASES * 4 * beat;
+  var cancion = new Audio('files/happy-birthday.mp3');
+  cancion.loop = true;
+  cancion.preload = 'auto';
+  cancion.volume = 0.8;
+  var sonando = false;
 
-  var ctx, master, ruido, siguiente = 0, temporizador = null, sonando = false;
-
-  function frecuencia(n) {
-    var semis = {C:-9,'C#':-8,D:-7,'D#':-6,E:-5,F:-4,'F#':-3,G:-2,'G#':-1,A:0,'A#':1,B:2};
-    var m = n.match(/^([A-G]#?)(\d)$/);
-    return 440 * Math.pow(2, (semis[m[1]] + (m[2] - 4) * 12) / 12);
-  }
-  function tono(tipo, f, t, d, vol) {
-    var o = ctx.createOscillator(), g = ctx.createGain();
-    o.type = tipo; o.frequency.value = f;
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.linearRampToValueAtTime(vol, t + 0.01);
-    g.gain.setValueAtTime(vol, t + d * 0.7);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + d);
-    o.connect(g); g.connect(master); o.start(t); o.stop(t + d + 0.02);
-  }
-  function golpe(t, d, vol, corte) {
-    var s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
-    s.buffer = ruido; f.type = 'highpass'; f.frequency.value = corte;
-    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
-    s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t + d);
-  }
-  function bombo(t) {
-    var o = ctx.createOscillator(), g = ctx.createGain();
-    o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.12);
-    g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
-    o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.16);
-  }
-  function programarVuelta(t0) {
-    var t = t0;
-    MELODIA.forEach(function (n) {
-      if (n[0] !== 'R') tono('square', frecuencia(n[0]), t, n[1] * beat * 0.9, 0.11);
-      t += n[1] * beat;
-    });
-    BAJO.forEach(function (raiz, c) {
-      for (var i = 0; i < 8; i++) {
-        tono('triangle', frecuencia(raiz) * (i % 2 ? 2 : 1), t0 + (c * 4 + i * 0.5) * beat, 0.5 * beat * 0.8, 0.2);
-      }
-    });
-    for (var c = 0; c < COMPASES; c++) for (var b = 0; b < 4; b++) {
-      var tb = t0 + (c * 4 + b) * beat;
-      if (b % 2 === 0) bombo(tb); else golpe(tb, 0.12, 0.22, 1500);
-      golpe(tb, 0.03, 0.05, 6000); golpe(tb + beat / 2, 0.03, 0.035, 6000);
-    }
-  }
-  function vuelta() {
-    programarVuelta(siguiente);
-    siguiente += LOOP;
-    temporizador = setTimeout(vuelta, Math.max(0, (siguiente - ctx.currentTime - 1.5) * 1000));
-  }
-  function iniciarMusica() {
-    var AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return false;
-    ctx = new AC();
-    master = ctx.createGain(); master.gain.value = 0.6; master.connect(ctx.destination);
-    ruido = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-    var datos = ruido.getChannelData(0);
-    for (var i = 0; i < datos.length; i++) datos[i] = Math.random() * 2 - 1;
-    if (ctx.state === 'suspended') ctx.resume();
-    siguiente = ctx.currentTime + 0.15;
-    vuelta();
-    sonando = true;
-    return true;
+  function ponerBoton() {
+    botonMusica.textContent = sonando ? '🔊' : '🔇';
+    botonMusica.setAttribute('aria-label', sonando ? 'Pausar música' : 'Reanudar música');
   }
   function abrir() {
     portada.classList.add('abriendo');
     document.body.classList.remove('cerrada');
     setTimeout(function () { if (portada.parentNode) portada.parentNode.removeChild(portada); }, 700);
-    if (iniciarMusica()) botonMusica.classList.add('visible');
+    var p = cancion.play();
+    if (p && p.then) {
+      p.then(function () { sonando = true; ponerBoton(); botonMusica.classList.add('visible'); })
+       .catch(function () { sonando = false; ponerBoton(); botonMusica.classList.add('visible'); });
+    } else {
+      sonando = true; ponerBoton(); botonMusica.classList.add('visible');
+    }
   }
   portada.addEventListener('click', abrir, { once: true });
   botonMusica.addEventListener('click', function () {
-    if (!ctx) return;
-    if (sonando) { ctx.suspend(); sonando = false; botonMusica.textContent = '🔇'; botonMusica.setAttribute('aria-label', 'Reanudar música'); }
-    else { ctx.resume(); sonando = true; botonMusica.textContent = '🔊'; botonMusica.setAttribute('aria-label', 'Pausar música'); }
+    if (sonando) { cancion.pause(); sonando = false; }
+    else { cancion.play(); sonando = true; }
+    ponerBoton();
   });
   document.addEventListener('visibilitychange', function () {
-    if (!ctx) return;
-    if (document.hidden) ctx.suspend(); else if (sonando) ctx.resume();
+    if (document.hidden) { cancion.pause(); }
+    else if (sonando) { cancion.play(); }
   });
 
   function diasFaltantes() {
