@@ -254,3 +254,12 @@ footer {
   .profile-photo { width: 180px; margin: 0 auto; }
   nav { gap: 20px; }
 }
+
+/* Job-market availability notice on the home page */
+.availability {
+  margin: 1.2rem 0;
+  padding: 0.7rem 1rem;
+  border-left: 4px solid var(--accent);
+  background: rgba(29, 78, 137, 0.08);
+  color: var(--accent-dark);
+}
